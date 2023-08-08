@@ -1,5 +1,5 @@
 ;; aesthetic.lisp -  Generate, mutate, describe and evaluate aesthetics.
-;; Copyright (C) 2009  Rhea Myers rhea@myers.studio
+;; Copyright (C) 2009, 2023 Rhea Myers rhea@myers.studio
 ;;
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU Affero General Public License as
@@ -31,10 +31,6 @@
   (nth (random (list-length choices)) 
        choices))
 
-(defun choose-randomly-deep (choices)
-  "Choose one item from a list of lists."
-  (choose-randomly (choose-randomly choices)))
-
 (defun plus-or-minus-one ()
   "Choose either one or minus one."
   (choose-randomly '(1.0 -1.0)))
@@ -64,11 +60,11 @@
   (let ((all (car strings)))
     (dolist (s (cdr strings))
       (when (not (equal s ""))
-    (setf all (concatenate 'string all
-                   (if (equal all "")
-                   ""
-                 " ") 
-                   s))))
+        (setf all (concatenate 'string all
+                               (if (equal all "")
+                                   ""
+                                   " ") 
+                               s))))
     all))
 
 (defun pluralise (object plurality)
@@ -84,6 +80,10 @@
           :fill-pointer 0
           :adjustable t))
 
+(defun vector-empty-p (vec)
+  "Is the vector empty?"
+  (= (length vec) 0))
+
 (defun make-char-stretchy-vector ()
   "Make an empty stretchy character vector."
   (make-stretchy-vector 'character))
@@ -91,10 +91,6 @@
 (defun make-string-stretchy-vector ()
   "Make an empty stretchy string vector."
   (make-stretchy-vector 'string))
-
-(defun vector-empty-p (vec)
-  "Is the vector empty?"
-  (= (length vec) 0))
 
 (defun tokenize-string (source separators)
   "Tokenize string to produce words separated by runs of separators."
@@ -111,119 +107,87 @@
       (vector-push-extend chars words))
     words))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Quantity
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun list-to-items (l v)
+  "Make an extended alist of l consed with the default value v and nil."
+  (map 'list
+       #'(lambda (item) (list item v nil))
+       l))
 
-(defun amount ()
-  "Generate a quantity description."
-  (choose-randomly '("A" "A pair of" "Some" "Many")))
+(defun positive-items (items)
+  "Fetch a list of the entries in the list with values > 0."
+  (loop for item in items
+        when (> (weight item) 0)
+          collect item))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Colour
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun items-total-value (items)
+  "Sum the values of the entries in an alist."
+  (loop for items in items
+        sum (weight item)))
 
-(defparameter monochromes '("black" "grey" "white"))
-(defparameter hues '("red" "orange" "yellow" "green" "blue" "purple"))
-(defparameter colours '("magenta" "cyan" "brown" "pink" "turquoise" "mauve"))
-(defparameter metals '("gold" "silver" "bronze" "platinum" "copper" 
-               "rust-coloured"))
-(defparameter fabrics '("khaki" "cotton-coloured" "denim blue" 
-            "suede-coloured"))
-(defparameter naturals '("sky blue" "leaf green" "sea green" "sunset red"))
-(defparameter artificials '("neon blue" "sunset yellow" "shocking pink" 
-                "non-repro blue" "blue-screen blue"))
-(defparameter palettes (list monochromes hues colours metals fabrics naturals 
-                 artificials))
-(defparameter tone '("pale" "" "rich" "bright" "" "dark"))
+(defun choose-positive-item (items)
+  "Fetch the items with positive values, sum those values to represent
+   the probability of each being chosen, then choose one."
+  (let* ((candidates (positive-items items))
+         (total (items-total-value candidates))
+         (i (random total)))
+    (loop for item in items
+          sum (weight item) into prob-so-far
+          when (>= prob-so-far i)
+            return item)))
 
-(defun colour ()
-  "Choose a flat colour from a palette"
-  (choose-randomly-deep palettes))
+(defun choose-positive-item-deep (items)
+  "Fetch the items with positive values, sum those values to represent
+   the probability of each being chosen, then choose one."
+  (let* ((candidates (positive-items items))
+         (total (items-total-value candidates))
+         (i (random total)))
+    (loop for item in items
+          sum (weight item) into prob-so-far
+          when (>= prob-so-far i)
+            do (if (not (consp item))
+                   (name item)
+                   (choose-positive-item-deep (children item))))))
 
-(defun colour-description ()
-  "Generate a colour description."
-  (concatenate-string (choose-randomly tone) (colour) ))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Aesthetic
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Texture
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Use a flat three-layer structure.
 
-(defun texture ()
-  "Choose a texture."
-  (choose-randomly '("halftoned" "crosshatched" "scumbled" "glazed" "sketchy" 
-             "smooth")))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Appearance
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun appearance ()
-  "Generate the appearance of a figure."
-  (concatenate-string (maybe #'texture :default "")
-              (colour-description)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Shape
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defparameter geometric '("circle" "triangle" "square" "pentagon" "hexagon" 
-              "octagon"))
-(defparameter form '("organic shape" "spiky shape" "irregular shape"))
-(defparameter abstract-shapes (list geometric form))
-(defparameter abstract-shape-treatment '("" "" "outlined"))
-(defparameter building '("house" "skyscraper"))
-(defparameter transport '("car" "aeroplane" "ship"))
-(defparameter animal '("bird" "cat" "dog" "horse"))
-(defparameter generic-shapes (list building transport animal))
-(defparameter generic-shape-treatments '("" "" "" "silhouetted" "outlined" 
-                     "abstracted"))
-
-(defun shape-size ()
-  "Generate a size for the shape."
-  (choose-randomly '("" "" "tiny" "small" "large" "massive")))
-
-(defun shape-form (plural)
-  "Generate a shape form description."
-  (cond 
-   ((> (random 1.0) 0.5)
-    (concatenate-string (choose-randomly abstract-shape-treatment)
-         (pluralise (choose-randomly-deep abstract-shapes) plural)))
-   (t
-    (concatenate-string (choose-randomly generic-shape-treatments)
-         (pluralise (choose-randomly-deep generic-shapes) plural)))))
-
-(defun shape ()
-  (if (> (random 1.0) 0.5)
-      (choose-randomly-deep abstract-shapes)
-      (choose-randomly-deep generic-shapes)))
-
-(defun shape-description (plural)
-  "Generate a shape description."
-  (concatenate-string (shape-size)
-              (appearance)
-              (shape-form plural)))
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Ground
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun ground ()
-  "Generate a simple ground description."
-  (appearance))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Descriptions
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun generate-description ()
-  "Describe a single (set of) figure(s) on a single ground."
-  (let ((plural (amount)))
-    (concatenate-string plural (shape-description plural)
-            "on a" (ground) "ground")))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Aesthetics
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defparameter +properties+
+  '((amounts
+     (singular ("A"))
+     (plural ("A pair of" "Some" "Many")))
+    (colours
+     (monochromes ("black" "grey" "white"))
+     (hues ("red" "orange" "yellow" "green" "blue" "purple"))
+     (colours ("magenta" "cyan" "brown" "pink" "turquoise" "mauve"))
+     (metals ("gold" "silver" "bronze" "platinum" "copper" 
+              "rust-coloured"))
+     (fabrics ("khaki" "cotton-coloured" "denim blue" 
+               "suede-coloured"))
+     (naturals ("sky blue" "leaf green" "sea green" "sunset red"))
+     (artificials ("neon blue" "sunset yellow" "shocking pink" 
+                   "non-repro blue" "blue-screen blue")))
+    (tones
+     (brightness ("pale" "rich"))
+     (saturation ("bright" "dark")))
+    (textures
+     (rough ("halftoned" "crosshatched" "scumbled" "sketchy"))
+     (smooth ("glazed" "smooth")))
+    (shapes
+     (geometric ("circle" "triangle" "square" "pentagon" "hexagon" "octagon"))
+     (abstract ("organic shape" "spiky shape" "irregular shape"))
+     (figurative ("house" "skyscraper"
+                  "car" "aeroplane" "ship"
+                  "bird" "cat" "dog" "horse")))
+    (sizes
+     (small ("tiny" "small"))
+     (medium (""))
+     (large ("large" "massive")))
+    (treatments
+     (abstracting ("silhouetted" "outlined" "abstracted"))
+     (realistic ("realistic" "photorealistic" "naturalistic")))))
 
 (defparameter +min-properties+ 4)
 (defparameter +max-properties+ 12)
@@ -231,36 +195,69 @@
 (defparameter +max-properties-to-mutate+ 2)
 (defparameter +max-properties-to-add+ 2)
 
-(defun list-aesthetic (aesthetic)
-  "Gather the property names without their values."
-  (loop for key being each hash-key of aesthetic
-       collect key))
+(defun make-aesthetic (aesthetic default)
+  "Turn the three-level aesthetic spec into a weighted tree of properties."
+  (loop for category in aesthetic
+        collect (list (car category)
+                      (loop for subcat in (cdr category)
+                            collect (list (car subcat)
+                                          default
+                                          (loop for property in (cadr subcat)
+                                                collect (list property
+                                                              default
+                                                              nil)))))))
 
-(defun serialise-aesthetic (aesthetic)
-  "Make a serialisable representation of the aesthetic"
-  (let ((representation '()))
-    (maphash #'(lambda (key val)
-         (push (cons key val) representation))
-         aesthetic)
-    representation))
+(defun name (item)
+  "Get the name of the triple."
+  (car item))
 
-(defun deserialise-aesthetic (aesthetic-alist)
-  "Turn a serialised aethetic into a hashtable"
-  (let ((aesthetic (make-hash-table :test 'equal)))
-    (dolist (property-pair aesthetic-alist)
-      (setf (gethash (car property-pair) aesthetic)
-        (cdr property-pair)))
-    aesthetic))
+(defun weight (item)
+  "Get the weight of the triple."
+  (cadr item))
+
+(defun children (item)
+  "Get the child list, if any, of the triple."
+  (caddr item))
+
+(defun child-weight-total (item)
+  "Sum the weights of the item's children."
+  (reduce #'+ (children item) (lambda (child) (weight child))))
+
+(defun child-weight-positive (item)
+  "Sum the positive weights of the item's children."
+  (reduce #'+ 
+          (map 'list
+               #'(lambda (child) (let ((w (weight child))) (if (> w 0) w 0)))
+               children)))
+
+(defun ensure-positive-child-paths (item)
+  "Make sure that there is a path to a non-zero/negative item from each root."
+  (let ((items (children item)))
+    ;; nil is a list, so consp rather than listp.
+    (when (consp items)
+      ;; Make sure this level has one or more positive property.
+      (loop while (= (child-weight-positive items) 0)
+            do (mutate-aesthetic-properties items))
+      ;; Recurse to check that positive properties have a positive child item.
+      (dolist (item children)
+        (when (> (weight item) 0)
+          (ensure-positive-child-paths item))))))
+
+(defun list-aesthetic (item)
+  "Get all the leaves as a flat list, ignoring parent weights."
+  (cond ((null item) nil)
+        ((consp (children item)))
+        (t (mapcan #'flatten item))))
 
 (defun aesthetic-opinions (aesthetic)
   "Sort the properties into likes and dislikes."
   (let ((likes '())
-    (dislikes '()))
-    (maphash #'(lambda (key val)
-         (if (>= val 0.0)
-             (push key likes)
-             (push key dislikes))) 
-     aesthetic)
+        (dislikes '()))
+    (dolist #'(lambda (key val)
+                 (if (>= val 0)
+                     (push key likes)
+                     (push key dislikes))) 
+             aesthetic)
     (values likes dislikes)))
 
 (defun describe-aesthetic (aesthetic)
@@ -273,95 +270,167 @@
                          (format nil "I dislike~{ ~A~^,~}." dislikes))))
       (values likes-string dislikes-string))))
 
-(defun aesthetic-size (aesthetic)
-  "Get the current size of *aesthetic*."
-  (hash-table-count aesthetic))
+;; (defun aesthetic-size (aesthetic)
+;;   "Get the current size of *aesthetic*."
+;;   (hash-table-count aesthetic))
 
-(defun make-property ()
-  "Choose a new property."
-  (funcall (choose-one-of (list #'shape #'colour #'texture))))
+;; (defun make-property ()
+;;   "Choose a new property."
+;;   (funcall (choose-one-of (list #'shape #'colour #'texture))))
 
-(defun make-properties (count)
-  "Choose n properties."
-  (loop for i below count
-       collect (make-property)))
+;; (defun make-properties (count)
+;;   "Choose n properties."
+;;   (loop for i below count
+;;        collect (make-property)))
 
-(defun add-properties (properties)
-  "Add zero or more properties."
-  (append properties 
-      (make-properties (min (max +min-properties+ 
-                     (random +max-properties-to-add+))
-                (- +max-properties+ (length properties))))))
+;; (defun add-properties (properties)
+;;   "Add zero or more properties."
+;;   (append properties 
+;;       (make-properties (min (max +min-properties+ 
+;;                      (random +max-properties-to-add+))
+;;                 (- +max-properties+ (length properties))))))
 
-(defun delete-properties (properties)
-  "Delete 0+ properties, don't reduce properties below +min-properties+."
-  (subseq properties 0 (max (- (length properties)
-                   (random +max-properties-to-mutate+))
-                +min-properties+)))  
+;; (defun delete-properties (properties)
+;;   "Delete 0+ properties, don't reduce properties below +min-properties+."
+;;   (subseq properties 0 (max (- (length properties)
+;;                    (random +max-properties-to-mutate+))
+;;                 +min-properties+)))  
 
-(defun update-properties (properties)
-  "Add some properties, delete some properties"
-  (add-properties (delete-properties properties)))
+;; (defun update-properties (properties)
+;;   "Add some properties, delete some properties"
+;;   (add-properties (delete-properties properties)))
 
-(defun describe-properties (properties)
-  "List the properties in a comma-delimited string"
-  (format nil "~{ ~A~^,~}" properties))
+;; (defun describe-properties (properties)
+;;   "List the properties in a comma-delimited string"
+;;   (format nil "~{ ~A~^,~}" properties))
 
-(defun evaluate-properties (properties1 properties2)
-  "Find how many properties match"
-  (length (intersection properties1 properties2)))
+;; (defun evaluate-properties (properties1 properties2)
+;;   "Find how many properties match"
+;;   (length (intersection properties1 properties2)))
 
-(defun set-aesthetic-property (aesthetic prop)
-  "Set valenced property."
-    (setf (gethash prop aesthetic)
-      (plus-or-minus-one)))
+;; (defun set-aesthetic-property (aesthetic prop)
+;;   "Set valenced property."
+;;     (setf (gethash prop aesthetic)
+;;       (plus-or-minus-one)))
 
-(defun set-aesthetic-properties (aesthetic props)
-  "Set valenced properties."
-  (dolist (prop props)
-    (set-aesthetic-property aesthetic prop))
-  aesthetic)
+;; (defun set-aesthetic-properties (aesthetic props)
+;;   "Set valenced properties."
+;;   (dolist (prop props)
+;;     (set-aesthetic-property aesthetic prop))
+;;   aesthetic)
 
-(defun make-aesthetic ()
-  "Generate an initial set of properties."
-  (set-aesthetic-properties (make-hash-table :test 'equal)
-          (make-properties (random-range +min-properties+
-                         +max-properties+))))
+;; (defun make-aesthetic ()
+;;   "Generate an initial set of properties."
+;;   (set-aesthetic-properties (make-hash-table :test 'equal)
+;;           (make-properties (random-range +min-properties+
+;;                          +max-properties+))))
 
-(defun delete-aesthetic-properties (aesthetic)
-  "Delete 0+ properties, don't reduce properties below +min-properties+."
-  ;;FIXME - Set the correct number here rather than checking with when
-  (dolist (prop (choose-n-of (random +max-properties-to-mutate+)
-                 (list-aesthetic aesthetic)))
-    (when (> (aesthetic-size aesthetic) +min-properties+) 
-           (remhash prop aesthetic)))
-  aesthetic)
+;; (defun delete-aesthetic-properties (aesthetic)
+;;   "Delete 0+ properties, don't reduce properties below +min-properties+."
+;;   ;;FIXME - Set the correct number here rather than checking with when
+;;   (dolist (prop (choose-n-of (random +max-properties-to-mutate+)
+;;                  (list-aesthetic aesthetic)))
+;;     (when (> (aesthetic-size aesthetic) +min-properties+) 
+;;            (remhash prop aesthetic)))
+;;   aesthetic)
 
-(defun add-aesthetic-properties (aesthetic)
-  "Add zero or more properties."
-  (loop with remaining = (min (max +min-properties+ 
-                   (random +max-properties-to-add+))
-                  (- +max-properties+ (aesthetic-size aesthetic)))
-    while (> remaining 0)
-    do (let ((prop (make-property)))
-         (when (not (gethash prop aesthetic))
-           (set-aesthetic-property aesthetic prop)
-           (decf remaining))))
-  aesthetic)
+;; (defun add-aesthetic-properties (aesthetic)
+;;   "Add zero or more properties."
+;;   (loop with remaining = (min (max +min-properties+ 
+;;                                    (random +max-properties-to-add+))
+;;                               (- +max-properties+ (aesthetic-size aesthetic)))
+;;     while (> remaining 0)
+;;     do (let ((prop (make-property)))
+;;          (when (not (gethash prop aesthetic))
+;;            (set-aesthetic-property aesthetic prop)
+;;            (decf remaining))))
+;;   aesthetic)
 
-(defun mutate-aesthetic-properties (aesthetic)
-  "Mutate zero or more properties."
-  (dolist (prop (choose-n-of (random +max-properties-to-mutate+)
-                 (list-aesthetic aesthetic)))
-    (setf (gethash prop aesthetic)
-      (- (gethash prop aesthetic))))
-  aesthetic) 
+;; (defun mutate-aesthetic-properties (aesthetic)
+;;   "Mutate zero or more properties."
+;;   (dolist (prop (choose-n-of (random +max-properties-to-mutate+)
+;;                  (list-aesthetic aesthetic)))
+;;     (setf (gethash prop aesthetic)
+;;       (- (gethash prop aesthetic))))
+;;   aesthetic)
 
 (defun update-aesthetic (aesthetic)
   "Update the aesthetic."
   (add-aesthetic-properties 
    (mutate-aesthetic-properties
     (delete-aesthetic-properties aesthetic))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Quantity
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun amount (aesthetic)
+  "Generate a quantity description."
+  (choose-positive-item 'amounts aesthetic))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Colour
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun colour (aesthetic)
+  "Choose a flat colour from a palette"
+  (choose-positive-item-deep (assoc 'colours aesthetic)))
+
+(defun colour-description (aesthetic)
+  "Generate a colour description."
+  (concatenate-string (choose-positive-item (assoc 'tones aesthetic))
+                      (colour aesthetic)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Texture
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun texture (aesthetic)
+  "Choose a texture."
+  (choose-positive-item (assoc 'textures aesthetic)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Appearance
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun appearance (aesthetic)
+  "Generate the appearance of a figure."
+  (concatenate-string (texture aesthetic)
+                      (colour-description aesthetic)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Shape
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun size (aesthetic)
+  (choose-positive-item (assoc 'sizes aesthetic)))
+
+(defun shape (aesthetic)
+  (choose-positive-item-deep (assoc 'shapes aesthetic)))
+
+(defun shape-description (aesthetic plural)
+  "Generate a shape description."
+  (concatenate-string (size aesthetic)
+                      (appearance aesthetic)
+                      (pluralize (shape aesthetic) plural)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Ground
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun ground (aesthetic)
+  "Generate a simple ground description."
+  (appearance aesthetic))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Descriptions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun generate-description (aesthetic)
+  "Describe a single (set of) figure(s) on a single ground."
+  (let ((plural (amount aesthetic)))
+    (concatenate-string plural (shape-description aesthetic plural)
+                        "on a" (ground aesthetic) "ground")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Critique
@@ -379,7 +448,7 @@
   (let ((clean-artwork (string-downcase artwork)))
     (loop for prop being each hash-key of *aesthetic*
        if (search prop clean-artwork)
-       sum (gethash prop *aesthetic* 0.0))))
+       sum (gethash prop *aesthetic* 0))))
 
 (defun evaluate-artwork (artwork)
   "Set range to max of +/-1, probably less."
@@ -399,10 +468,10 @@
 (defun positive-aesthetic-value (description aesthetic)
   "Sum the positive value of the work under the aesthetic"
   (let ((clean-artwork (string-downcase description))
-    (positive-value 0.0))
+    (positive-value 0))
     (maphash #'(lambda (key val) 
          (when (and (search key clean-artwork)
-                (> val 0.0))
+                (> val 0))
            (incf positive-value val)))
          aesthetic)
     positive-value))
@@ -410,10 +479,10 @@
 (defun negative-aesthetic-value (description aesthetic)
   "Sum the negative value of the work under the aesthetic"
   (let ((clean-artwork (string-downcase description))
-        (negative-value 0.0))
+        (negative-value 0))
     (maphash #'(lambda (key val) 
          (when (and (search key clean-artwork)
-                (< val 0.0))
+                (< val 0))
            (decf negative-value val)))
          aesthetic)
     negative-value))
@@ -421,14 +490,14 @@
 (defun total-aesthetic-values (description aesthetic)
   "Sum the values of the work under the aesthetic"
   (let ((clean-artwork (string-downcase description))
-    (+total 0.0)
-    (-total 0.0))
+    (+total 0)
+    (-total 0))
     (maphash #'(lambda (key val) 
          (when (search key clean-artwork)
            (cond 
-             ((> val 0.0)
+             ((> val 0)
               (incf +total val))
-             ((< val 0.0)
+             ((< val 0)
               (decf -total val)))))
          aesthetic)
     (values +total -total)))
@@ -436,8 +505,8 @@
 (defun describe-aesthetic-value (positive negative)
   "Describe the value of the work allowing for pos & neg points."
   (cond 
-    ((and (>= positive 2.5) (= negative 0)) "a masterpiece")
-    ((and (>= negative 2.5) (= positive 0)) "a failure")
+    ((and (>= positive 3) (= negative 0)) "a masterpiece")
+    ((and (>= negative 3) (= positive 0)) "a failure")
     ((> positive negative) "good")
     ((> negative positive) "bad")
     ((and (= negative positive) (>= negative 2)) "extremely mixed")
@@ -449,11 +518,11 @@
   (multiple-value-bind (+val -val) 
             (total-aesthetic-values description aesthetic)
     (format nil 
-        "~a \"~a\" is ~a."
-        (choose-one-of '("I think that" "In my opinion," "I would say that"
-                 "Aesthetically speaking," ))
-        identifier
-        (describe-aesthetic-value +val -val))))
+            "~a \"~a\" is ~a."
+            (choose-one-of '("I think that" "In my opinion," "I would say that"
+                             "Aesthetically speaking," ))
+            identifier
+            (describe-aesthetic-value +val -val))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Similarity, strength of resemblance
