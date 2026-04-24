@@ -14,5 +14,7 @@ ros cybernetic-artworld.lisp
 or:
 
 ```
- sbcl --load cybernetic-artworld.lisp --eval '(main)' --quit
+sbcl --load cybernetic-artworld.lisp \
+     --eval '(cybernetic-artworld:main)' \
+     --quit
 ```

@@ -1,5 +1,33 @@
+;; The Cybernetic Artworld - Simulate how the artworld doesn't work.
+;; Copyright (C) 2009 Rhea Myers <rhea@myers.studio>
+;; Copyright (C) 2023, 2026 Myers Studio Ltd. & Rhea Myers
+;;
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-;; Copyright (C) 2009, 2023, 2026  Myers Studio Ltd. & Rhea Myers rhea@myers.studio
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Lisp environment setup
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(progn ;;init forms
+  ;;(ros:ensure-asdf)
+  ;;#+quicklisp(ql:quickload '() :silent t)
+  )
+
+(defpackage :cybernetic-artworld
+  (:use :cl)
+  (:export #:main))
+(in-package :cybernetic-artworld)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Base configuration for aesthetic properties
@@ -21,13 +49,13 @@
      (:monochromes "black" "grey" "white")
      (:hues "red" "orange" "yellow" "green" "blue" "purple")
      (:colours "magenta" "cyan" "brown" "pink" "turquoise" "mauve")
-     (:metals "gold" "silver" "bronze" "platinum" "copper" 
-              "rust-coloured")
-     (:fabrics "khaki" "cotton-coloured" "denim blue" 
-               "suede-coloured")
+     (:metals "gold" "silver" "bronze" "platinum" "copper"
+      "rust-coloured")
+     (:fabrics "khaki" "cotton-coloured" "denim blue"
+      "suede-coloured")
      (:naturals "sky blue" "leaf green" "sea green" "sunset red")
-     (:artificials "neon blue" "sunset yellow" "shocking pink" 
-                   "non-repro blue" "blue-screen blue"))
+     (:artificials "neon blue" "sunset yellow" "shocking pink"
+      "non-repro blue" "blue-screen blue"))
     (:tones
      (:brightness "pale" "rich")
      (:saturation "bright" "dark"))
@@ -38,8 +66,8 @@
      (:geometric "circle" "triangle" "square" "pentagon" "hexagon" "octagon")
      (:abstract "organic shape" "spiky shape" "irregular shape")
      (:figurative "house" "skyscraper"
-                  "car" "aeroplane" "ship"
-                  "bird" "cat" "dog" "horse"))
+      "car" "aeroplane" "ship"
+      "bird" "cat" "dog" "horse"))
     (:sizes
      (:small "tiny" "small")
      (:medium "medium" "middling")
@@ -54,7 +82,7 @@
 
 (defun choose-randomly (choices)
   "Choose one of the parameters randomly."
-  (nth (random (list-length choices)) 
+  (nth (random (list-length choices))
        choices))
 
 (defun choose-one-of (possibilities)
@@ -88,7 +116,7 @@
         (setf all (concatenate 'string all
                                (if (equal all "")
                                    ""
-                                   " ") 
+                                   " ")
                                s))))
     all))
 
@@ -96,7 +124,7 @@
   "Make a word plural if necessary."
   (if (equal plurality "A")
       object
-    (concatenate 'string object "s")))
+      (concatenate 'string object "s")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; <property>
@@ -155,14 +183,14 @@
           sum (weight prop) into prob-so-far
           when (>= prob-so-far i)
             return prop)))
-  
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; <subcategory>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <subcategory> (<property-list>)
   ((category :initarg :category
-           :accessor category)
+             :accessor category)
    (name :initarg :name
          :accessor name)))
 
@@ -222,7 +250,7 @@
                :accessor categories)))
 
 (defmethod print-object ((object <aesthetic>) stream)
-  (format stream "#<<AESTHETIC> categories:~%")  
+  (format stream "#<<AESTHETIC> categories:~%")
   (loop for key being the hash-keys of (categories object)
           using (hash-value value)
         do (print-category value stream))
@@ -239,8 +267,8 @@
             (make-instance '<category> :name category)))
   (let ((cat (gethash category (categories ae))))
     (if (not (gethash subcategory (subcategories cat)))
-             (setf (gethash subcategory (subcategories cat))
-                   (make-instance '<subcategory> :name subcategory :category cat)))
+        (setf (gethash subcategory (subcategories cat))
+              (make-instance '<subcategory> :name subcategory :category cat)))
     (let* ((sub (gethash subcategory (subcategories cat)))
            (prop (make-instance '<property>
                                 :name name
@@ -276,7 +304,7 @@
   ae)
 
 (defmethod add-random-properties ((ae <aesthetic>))
-  (dotimes (i (max +min-properties+ 
+  (dotimes (i (max +min-properties+
                    (random +max-properties-to-add+)))
     (add-random-property ae (plus-or-minus-one)))
   ae)
@@ -291,10 +319,10 @@
   "Describe the current likes and dislikes."
   ;;FIXME - Replace the final comma with an and or ampersand.
   (multiple-value-bind (likes dislikes) (aesthetic-opinions aesthetic)
-    (let ((likes-string (when likes 
-              (format nil "I like~{ ~A~^,~}. " likes)))
-      (dislikes-string (when dislikes
-                         (format nil "I dislike~{ ~A~^,~}." dislikes))))
+    (let ((likes-string (when likes
+                          (format nil "I like~{ ~A~^,~}. " likes)))
+          (dislikes-string (when dislikes
+                             (format nil "I dislike~{ ~A~^,~}." dislikes))))
       (values likes-string dislikes-string))))
 
 (defun ensure-positive-categories-members (aesthetic)
@@ -303,22 +331,22 @@
     (let ((category-name (car c)))
       (when (or (not (gethash (car c) (categories aesthetic)))
                 (= (nprops (gethash (car c) (categories aesthetic))) 0))
-          (let* ((subcategory (choose-one-of (cdr c)))
-                 (property (choose-one-of (cdr subcategory))))
-            (add-property aesthetic property 1.0 category-name (car subcategory))))))
+        (let* ((subcategory (choose-one-of (cdr c)))
+               (property (choose-one-of (cdr subcategory))))
+          (add-property aesthetic property 1.0 category-name (car subcategory))))))
   aesthetic)
 
 (defun truncate-aesthetic-properties (aesthetic)
   "Delete 0+ properties, don't reduce properties below +min-properties+."
   (let ((count (- (nprops aesthetic) +max-properties+)))
     (if (> count 0)
-      (let ((choices (choose-n-of count (properties-list aesthetic))))
-        (dolist (choice choices)
-          (remove-property aesthetic choice)))))
+        (let ((choices (choose-n-of count (properties-list aesthetic))))
+          (dolist (choice choices)
+            (remove-property aesthetic choice)))))
   aesthetic)
 
 (defun delete-aesthetic-properties (aesthetic)
-  "Delete 0+ properties, don't reduce properties below +min-properties+."  
+  "Delete 0+ properties, don't reduce properties below +min-properties+."
   (let* ((count (random +max-properties-to-delete+))
          (choices (choose-n-of count (properties-list aesthetic))))
     (dolist (choice choices)
@@ -326,17 +354,17 @@
   aesthetic)
 
 (defun add-aesthetic-properties (aesthetic)
-    "Add zero or more properties."
-    (loop with remaining = (min (max +min-properties+ 
-                                     (random +max-properties-to-add+))
-                                (- +max-properties+ (nprops aesthetic)))
-          while (> remaining 0)
-          do (multiple-value-bind (name weight category subcategory)
-                 (random-property-values (plus-or-minus-one))
-               (when (not (gethash name (properties aesthetic)))
-                 (add-property aesthetic name weight category subcategory)
-                 (decf remaining))))
-    aesthetic)
+  "Add zero or more properties."
+  (loop with remaining = (min (max +min-properties+
+                                   (random +max-properties-to-add+))
+                              (- +max-properties+ (nprops aesthetic)))
+        while (> remaining 0)
+        do (multiple-value-bind (name weight category subcategory)
+               (random-property-values (plus-or-minus-one))
+             (when (not (gethash name (properties aesthetic)))
+               (add-property aesthetic name weight category subcategory)
+               (decf remaining))))
+  aesthetic)
 
 (defun mutate-aesthetic-properties (aesthetic)
   "Mutate (flip the weight of) zero or more properties."
@@ -350,7 +378,7 @@
   "Update the aesthetic."
   (ensure-positive-categories-members
    (truncate-aesthetic-properties
-    (add-aesthetic-properties 
+    (add-aesthetic-properties
      (mutate-aesthetic-properties
       (delete-aesthetic-properties aesthetic))))))
 
@@ -383,10 +411,10 @@
             (if (< val 0)
                 (incf neg val))))))
     (values total pos neg)))
-        
+
 (defun describe-aesthetic-value (positive negative)
   "Describe the value of the work allowing for pos & neg points."
-  (cond 
+  (cond
     ((and (>= positive 3) (= negative 0)) "a masterpiece")
     ((and (>= negative 3) (= positive 0)) "a failure")
     ((> positive negative) "good")
@@ -408,7 +436,7 @@
                             category-name
                             subcategory-name))))))
     aesthetic))
-  ;;(add-random-properties (make-instance '<aesthetic>)))
+;;(add-random-properties (make-instance '<aesthetic>)))
 
 (defun amount (aesthetic)
   "Generate a quantity description."
@@ -421,7 +449,7 @@
 (defun colour-description (aesthetic)
   "Generate a colour description."
   (concatenate-string (name (choose-positive-property (gethash :tones
-                                                         (categories aesthetic))))
+                                                               (categories aesthetic))))
                       (colour aesthetic)))
 
 (defun texture (aesthetic)
@@ -507,22 +535,22 @@
   "Process the string description of the artwork to generate a score."
   (let ((clean-artwork (string-downcase artwork)))
     (loop for prop in (properties-list aesthetic)
-       if (search (name prop) clean-artwork)
-       sum (weight prop))))
+          if (search (name prop) clean-artwork)
+            sum (weight prop))))
 
 (defun total-aesthetic-values (description aesthetic)
   "Sum the values of the work under the aesthetic"
   (let ((clean-artwork (string-downcase description))
-    (+total 0)
-    (-total 0))
-    (maphash #'(lambda (key val) 
-         (when (search key clean-artwork)
-           (cond 
-             ((> val 0)
-              (incf +total val))
-             ((< val 0)
-              (decf -total val)))))
-         (properties aesthetic))
+        (+total 0)
+        (-total 0))
+    (maphash #'(lambda (key val)
+                 (when (search key clean-artwork)
+                   (cond
+                     ((> val 0)
+                      (incf +total val))
+                     ((< val 0)
+                      (decf -total val)))))
+             (properties aesthetic))
     (values +total -total)))
 
 (defun evaluate-artwork (artwork aesthetic)
@@ -542,45 +570,45 @@
 (defun positive-aesthetic-value (description aesthetic)
   "Sum the positive value of the work under the aesthetic"
   (let ((clean-artwork (string-downcase description))
-    (positive-value 0))
-    (maphash #'(lambda (key val) 
-         (when (and (search key clean-artwork)
-                (> val 0))
-           (incf positive-value val)))
-         aesthetic)
+        (positive-value 0))
+    (maphash #'(lambda (key val)
+                 (when (and (search key clean-artwork)
+                            (> val 0))
+                   (incf positive-value val)))
+             aesthetic)
     positive-value))
 
 (defun negative-aesthetic-value (description aesthetic)
   "Sum the negative value of the work under the aesthetic"
   (let ((clean-artwork (string-downcase description))
         (negative-value 0))
-    (maphash #'(lambda (key val) 
-         (when (and (search key clean-artwork)
-                (< val 0))
-           (decf negative-value val)))
-         aesthetic)
+    (maphash #'(lambda (key val)
+                 (when (and (search key clean-artwork)
+                            (< val 0))
+                   (decf negative-value val)))
+             aesthetic)
     negative-value))
 
 (defun total-aesthetic-values (description aesthetic)
   "Sum the values of the work under the aesthetic"
   (let ((clean-artwork (string-downcase description))
-    (+total 0)
-    (-total 0))
-    (maphash #'(lambda (key val) 
-         (when (search key clean-artwork)
-           (cond 
-             ((> (weight val) 0)
-              (incf +total (weight val)))
-             ((< (weight val) 0)
-              (decf -total (weight val))))))
-         (properties aesthetic))
-(values +total -total)))
+        (+total 0)
+        (-total 0))
+    (maphash #'(lambda (key val)
+                 (when (search key clean-artwork)
+                   (cond
+                     ((> (weight val) 0)
+                      (incf +total (weight val)))
+                     ((< (weight val) 0)
+                      (decf -total (weight val))))))
+             (properties aesthetic))
+    (values +total -total)))
 
 (defmethod critique-art ((critic <cybercritic>) (art string))
   "Verbally critique the artwork."
-  (multiple-value-bind (+val -val) 
+  (multiple-value-bind (+val -val)
       (total-aesthetic-values art (aesthetic critic))
-    (format nil 
+    (format nil
             "~a \"~a\" is ~a."
             (choose-one-of '("I think that" "In my opinion," "I would say that"
                              "Aesthetically speaking," ))
@@ -675,8 +703,8 @@
         (critique-art (critic artworld)
                       (artworks artworld)))
   (format t "The critic had this to say about them:~%")
-    (loop for critique across (critiques artworld)
-          do (format t "    ~a~%" critique))
+  (loop for critique across (critiques artworld)
+        do (format t "    ~a~%" critique))
   (format t "Based on their current aesthetic:~%")
   (print-aesthetic (critic artworld))
   (update (critic artworld)))
@@ -714,7 +742,10 @@
 ;; Main flow of execution
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun main ()
+(defun main (&rest argv)
+  (declare (ignorable argv))
   (setf *random-state* (make-random-state t))
   (let ((artworld (make-cybernetic)))
     (run-cybernetic-until-collector-collects artworld)))
+
+#|-*- mode:lisp -*-|#
